@@ -6,5 +6,9 @@ numpy
 ipykernel
 scikit-learn
 opencv-python
-transformers
+transformers==4.49.0
 tqdm
+
+peft
+flash-attn==2.6.3
+wandb
