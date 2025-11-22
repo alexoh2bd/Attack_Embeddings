@@ -1,5 +1,8 @@
 .git
+*.pt
+*.safetensors
 
+/mmeb_images
 /IRenv
 
 */__pycache__/
