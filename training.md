@@ -2,34 +2,15 @@
 
 This document lists all available defense training scripts and their commands.
 
+> **IMPORTANT:** All training uses `MMEB-train` dataset. Evaluation uses `MMEB-eval` dataset.
+
 ---
 
 ## 1. MAT (Mixed Adversarial Training)
 
-**Script:** `defend_clip_mat.py`
-
-**Description:** Original MAT implementation with data augmentation and gradient accumulation.
-
-**Command:**
-```bash
-python defend_clip_mat.py
-```
-
-**Output:** `robust_clip_openai/model.pt`
-
-**Features:**
-- Aggressive data augmentation (color jitter, blur, noise)
-- Gradient accumulation (micro_batch_size=2, accumulation_steps=8)
-- Negative Text Bank (512 samples)
-- Early stopping and best model selection
-
----
-
-## 2. MAT V2 (Optimized)
-
 **Script:** `defend_clip_mat_v2.py`
 
-**Description:** Re-implementation from first principles with AMP and DataLoader.
+**Description:** Data augmentation-based adversarial training with AMP and DataLoader.
 
 **Command:**
 ```bash
@@ -42,10 +23,12 @@ python defend_clip_mat_v2.py --batch_size 16 --lr 1e-5 --epochs 3
 - `--epochs`: Number of epochs (default: 1)
 - `--max_steps`: Max training steps (default: 1000)
 - `--output_dir`: Output directory (default: robust_clip_mat_v2)
+- `--dataset`: Dataset name (default: MSCOCO_i2t)
 
 **Output:** `robust_clip_mat_v2/model_best.pt`
 
 **Features:**
+- Aggressive data augmentation (color jitter, blur, noise)
 - Automatic Mixed Precision (AMP)
 - PyTorch DataLoader with 2 workers
 - Negative Text Bank (512 samples)
@@ -54,7 +37,7 @@ python defend_clip_mat_v2.py --batch_size 16 --lr 1e-5 --epochs 3
 
 ---
 
-## 3. FAT (Fast Adversarial Training)
+## 2. FAT (Fast Adversarial Training)
 
 **Script:** `defend_clip_fat.py`
 
@@ -75,7 +58,7 @@ python defend_clip_fat.py
 
 ---
 
-## 4. PGD (Full PGD Adversarial Training)
+## 3. PGD (Full PGD Adversarial Training)
 
 **Script:** `defend_clip_pgd.py`
 

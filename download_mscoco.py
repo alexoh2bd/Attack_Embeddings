@@ -25,60 +25,71 @@ def download_mscoco_images(num_images=1000, output_dir="mmeb_images"):
         output_dir: Output directory for images
     """
     print(f"Loading MSCOCO_i2t dataset metadata...")
-    ds = load_dataset("TIGER-Lab/MMEB-eval", "MSCOCO_i2t", split="test")
+    # Try loading train split first, fallback to test if needed (but we want train images)
+    try:
+        ds = load_dataset("TIGER-Lab/MMEB-train", "MSCOCO_i2t", split="original")
+        print("Loaded MMEB-train (original split)")
+    except:
+        print("MMEB-train not found, falling back to MMEB-eval (test split)")
+        ds = load_dataset("TIGER-Lab/MMEB-eval", "MSCOCO_i2t", split="test")
     
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
     print(f"Downloading {min(num_images, len(ds))} images to {output_dir}...")
     
-    downloaded = 0
-    skipped = 0
+    from concurrent.futures import ThreadPoolExecutor
     
-    for i, row in enumerate(tqdm(ds)):
-        if downloaded >= num_images:
-            break
-            
+    def process_image(row):
         # Get image path from dataset
-        img_path = row['qry_img_path']
+        img_path = row.get('qry_image_path', row.get('qry_img_path'))
         
         # Create full output path
         full_output_path = os.path.join(output_dir, img_path)
         
         # Skip if already exists
         if os.path.exists(full_output_path):
-            skipped += 1
-            continue
+            return 0 # Skipped
         
         # Create directory structure
         os.makedirs(os.path.dirname(full_output_path), exist_ok=True)
         
-        # Try to download image (MSCOCO images are publicly available)
-        # Extract image ID from path (e.g., "MSCOCO_i2t/COCO_train2014_000000123456.jpg")
+        # Extract image ID from path
         img_filename = os.path.basename(img_path)
         
-        # MSCOCO images are available at http://images.cocodataset.org/
-        # Format: http://images.cocodataset.org/train2014/COCO_train2014_000000123456.jpg
         if 'train2014' in img_filename:
             url = f"http://images.cocodataset.org/train2014/{img_filename}"
         elif 'val2014' in img_filename:
             url = f"http://images.cocodataset.org/val2014/{img_filename}"
         else:
-            print(f"Unknown image type: {img_filename}")
-            continue
+            return 0
         
         try:
-            response = requests.get(url, timeout=10, stream=True)
+            response = requests.get(url, timeout=10)
             response.raise_for_status()
             
             # Save image
-            img = Image.open(BytesIO(response.content))
-            img.save(full_output_path)
-            downloaded += 1
+            with open(full_output_path, 'wb') as f:
+                f.write(response.content)
+            return 1 # Downloaded
             
         except Exception as e:
-            print(f"Failed to download {img_filename}: {e}")
-            continue
+            # print(f"Failed to download {img_filename}: {e}")
+            return 0
+
+    print(f"Downloading {min(num_images, len(ds))} images to {output_dir} with 16 threads...")
+    
+    # Select subset
+    subset = ds.select(range(min(num_images, len(ds))))
+    
+    downloaded = 0
+    skipped = 0
+    
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        results = list(tqdm(executor.map(process_image, subset), total=len(subset)))
+        
+    downloaded = sum(results)
+    skipped = len(subset) - downloaded
     
     print(f"\n{'='*60}")
     print(f"Download complete!")

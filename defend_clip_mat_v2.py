@@ -76,7 +76,7 @@ class CLIPDataset(Dataset):
         self.base_img_path = base_img_path
         
         log(f"Loading HF Dataset: {dataset_name}...")
-        self.ds = load_dataset("TIGER-Lab/MMEB-eval", dataset_name, split="test")
+        self.ds = load_dataset("TIGER-Lab/MMEB-train", dataset_name, split="original")
         
         if max_samples:
             self.ds = self.ds.select(range(min(len(self.ds), max_samples)))
@@ -86,13 +86,16 @@ class CLIPDataset(Dataset):
 
     def _filter_valid_images(self):
         """Pre-scan dataset to find valid images."""
-        valid = []
+        valid_indices = []
         for i in range(len(self.ds)):
-            img_path = self.ds[i]['qry_img_path']
+            # MMEB-train uses 'qry_image_path', MMEB-eval uses 'qry_img_path'
+            img_path = self.ds[i].get('qry_image_path', self.ds[i].get('qry_img_path'))
+            if img_path is None: # If neither key exists, skip
+                continue
             full_path = os.path.join(self.base_img_path, img_path)
             if os.path.exists(full_path):
-                valid.append(i)
-        return valid
+                valid_indices.append(i)
+        return valid_indices
 
     def __len__(self):
         return len(self.valid_indices)
@@ -101,9 +104,12 @@ class CLIPDataset(Dataset):
         real_idx = self.valid_indices[idx]
         item = self.ds[real_idx]
         
-        img_path = item['qry_img_path']
-        text = item['tgt_text']
-        if isinstance(text, list): text = text[0]
+        # Handle different column names
+        img_path = item.get('qry_image_path', item.get('qry_img_path'))
+        text = item.get('pos_text', item.get('tgt_text'))
+        
+        if isinstance(text, list):
+            text = text[0]
         
         full_path = os.path.join(self.base_img_path, img_path)
         

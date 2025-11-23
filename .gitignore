@@ -5,6 +5,10 @@
 /mmeb_images
 /IRenv
 
+/mmeb_images
+/mmeb_eval_attacked
+/mmeb_train_attacked
+
 */__pycache__/
 *.pyc
 *.swap
