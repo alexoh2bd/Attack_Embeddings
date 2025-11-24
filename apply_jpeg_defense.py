@@ -2,6 +2,7 @@
 """apply_jpeg_defense.py
 
 Generation augmented by the help of Google Antigravity - model Gemini 3 Pro and Claude Sonnet 4.5 Thinking
+CHAT HISTORY ATTACHED as Antigravity-Agentic-Coding-Chat-History.md
 
 Apply JPEG compression defense to all adversarial images.
 

@@ -2,6 +2,7 @@
 """defend_clip_mat_v2.py
 
 Generation augmented by the help of Google Antigravity - model Gemini 3 Pro and Claude Sonnet 4.5 Thinking
+CHAT HISTORY ATTACHED as Antigravity-Agentic-Coding-Chat-History.md
 
 Command to train:
     python defend_clip_mat_v2.py --batch_size 16 --epochs 1
