@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
 """defend_clip_mat_v2.py
 
-Re-implemented Mixed Adversarial Training (MAT) for OpenAI CLIP ViT-L/14.
-Built from first principles for stability, efficiency, and correctness.
+Generation augmented by the help of Google Antigravity - model Gemini 3 Pro and Claude Sonnet 4.5 Thinking
+CHAT HISTORY ATTACHED as Antigravity-Agentic-Coding-Chat-History.md
 
-Key Features:
-- Automatic Mixed Precision (AMP) for memory efficiency and speed.
-- PyTorch DataLoader with multi-processing for fast data loading.
-- Negative Text Bank to prevent loss collapse on small batches.
-- Modular design with robust logging.
-- Heavy Data Augmentation (MAT strategy).
-
-Usage:
+Command to train:
     python defend_clip_mat_v2.py --batch_size 16 --epochs 1
 """
 
