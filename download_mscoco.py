@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""download_mscoco.py
+
+Download MSCOCO images for MMEB dataset training.
+This script downloads a subset of MSCOCO images to a local directory.
+
+Usage:
+    python download_mscoco.py --num_images 1000
+"""
+
+import argparse
+import os
+import requests
+from datasets import load_dataset
+from tqdm import tqdm
+from PIL import Image
+from io import BytesIO
+
+def download_mscoco_images(num_images=1000, output_dir="mmeb_images"):
+    """
+    Download MSCOCO images from the MMEB dataset.
+    
+    Args:
+        num_images: Number of images to download
+        output_dir: Output directory for images
+    """
+    print(f"Loading MSCOCO_i2t dataset metadata...")
+    # Try loading train split first, fallback to test if needed (but we want train images)
+    try:
+        ds = load_dataset("TIGER-Lab/MMEB-train", "MSCOCO_i2t", split="original")
+        print("Loaded MMEB-train (original split)")
+    except:
+        print("MMEB-train not found, falling back to MMEB-eval (test split)")
+        ds = load_dataset("TIGER-Lab/MMEB-eval", "MSCOCO_i2t", split="test")
+    
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
+    
+    print(f"Downloading {min(num_images, len(ds))} images to {output_dir}...")
+    
+    from concurrent.futures import ThreadPoolExecutor
+    
+    def process_image(row):
+        # Get image path from dataset
+        img_path = row.get('qry_image_path', row.get('qry_img_path'))
+        
+        # Create full output path
+        full_output_path = os.path.join(output_dir, img_path)
+        
+        # Skip if already exists
+        if os.path.exists(full_output_path):
+            return 0 # Skipped
+        
+        # Create directory structure
+        os.makedirs(os.path.dirname(full_output_path), exist_ok=True)
+        
+        # Extract image ID from path
+        img_filename = os.path.basename(img_path)
+        
+        if 'train2014' in img_filename:
+            url = f"http://images.cocodataset.org/train2014/{img_filename}"
+        elif 'val2014' in img_filename:
+            url = f"http://images.cocodataset.org/val2014/{img_filename}"
+        else:
+            return 0
+        
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            
+            # Save image
+            with open(full_output_path, 'wb') as f:
+                f.write(response.content)
+            return 1 # Downloaded
+            
+        except Exception as e:
+            # print(f"Failed to download {img_filename}: {e}")
+            return 0
+
+    print(f"Downloading {min(num_images, len(ds))} images to {output_dir} with 16 threads...")
+    
+    # Select subset
+    subset = ds.select(range(min(num_images, len(ds))))
+    
+    downloaded = 0
+    skipped = 0
+    
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        results = list(tqdm(executor.map(process_image, subset), total=len(subset)))
+        
+    downloaded = sum(results)
+    skipped = len(subset) - downloaded
+    
+    print(f"\n{'='*60}")
+    print(f"Download complete!")
+    print(f"  Downloaded: {downloaded} images")
+    print(f"  Skipped (already exists): {skipped} images")
+    print(f"  Output directory: {output_dir}")
+    print(f"{'='*60}\n")
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--num_images", type=int, default=1000,
+                        help="Number of images to download (default: 1000)")
+    parser.add_argument("--output_dir", type=str, default="mmeb_images",
+                        help="Output directory for images (default: mmeb_images)")
+    args = parser.parse_args()
+    
+    download_mscoco_images(args.num_images, args.output_dir)
+
+if __name__ == "__main__":
+    main()
