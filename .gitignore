@@ -9,7 +9,7 @@
 /mmeb_eval_attacked
 /mmeb_train_attacked
 
-*/__pycache__/
+/__pycache__
 *.pyc
 *.swap
 *.swp
