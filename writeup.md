@@ -62,5 +62,19 @@ python defend_clip_mat_v2.py --batch_size 16 --lr 1e-5 --epochs 3
 *\*Includes ~2.7 hours for attack generation + ~3 hours training.*
 
 
-## 6. Conclusion
+
+## 6. Ethical Considerations & Real-World Impact
+
+### 6.1 Responsible Disclosure
+This project analyzes known vulnerabilities in open-source models (CLIP). No zero-day vulnerabilities in proprietary systems were exploited. In a real-world scenario, if a novel attack vector against a deployed API (e.g., GPT-4V) were discovered, standard responsible disclosure protocols would be followed:
+1.  Privately report findings to the vendor (OpenAI).
+2.  Allow time for remediation before public release.
+3.  Focus publication on defensive mitigation rather than attack reproduction.
+
+### 6.2 Real-World Implications
+*   **Content Moderation Evasion:** Adversarial attacks on CLIP could allow malicious actors to bypass automated safety filters by disguising prohibited imagery as benign content (e.g., making violent content match "peaceful meadow").
+*   **Search Manipulation:** E-commerce or stock photo platforms relying on CLIP-like embeddings could be manipulated to surface irrelevant or malicious products.
+*   **Defense Necessity:** Our results show that standard models are highly brittle. Deploying vision-language models in adversarial environments (e.g., open web) without defenses like **Caption Aware Training** or **JPEG compression** poses significant security risks.
+
+## 7. Conclusion
 **Caption Aware Adversarial Training** proved to be the superior defense, recovering 96.3% of the baseline performance. However, **JPEG compression (q=30)** offers a surprisingly effective (95.7%) and zero-cost alternative for deployment scenarios where model retraining is not feasible.
