@@ -146,19 +146,19 @@ class MultimodalRetrievalPipeline:
         print(f"Loading model on {Config.DEVICE}...")
 
 
-        if model_name == "openai/clip-vit-base-patch32":
+        # if model_name == "openai/clip-vit-large-patch14":
             # Load model with memory optimizations
-            self.model = CLIPModel.from_pretrained(
-                model_name,
-                dtype=Config.DTYPE
-            ).to(Config.DEVICE)
-            self.processor = CLIPProcessor.from_pretrained(model_name)
+        self.model = CLIPModel.from_pretrained(
+            model_name,
+            dtype=Config.DTYPE
+        ).to(Config.DEVICE)
+        self.processor = CLIPProcessor.from_pretrained(model_name)
 
-        elif model_name == "jinaai/jina-embeddings-v4":
-            self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True, torch_dtype="auto")
-            self.processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
-        else:
-            self.model = AutoModelForCausalLM.from_pretrained("TIGER-Lab/VLM2Vec-Full", trust_remote_code=True, dtype="auto")
+        # elif model_name == "jinaai/jina-embeddings-v4":
+        #     self.model = AutoModel.from_pretrained(model_name, trust_remote_code=True, torch_dtype="auto")
+        #     self.processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
+        # else:
+        #     self.model = AutoModelForCausalLM.from_pretrained("TIGER-Lab/VLM2Vec-Full", trust_remote_code=True, dtype="auto")
 
         self.model.eval()  # Set to evaluation mode
 

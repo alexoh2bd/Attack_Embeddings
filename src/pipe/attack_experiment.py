@@ -18,6 +18,7 @@ import cv2
 from pipe import MultimodalRetrievalPipeline
 from datetime import datetime
 from transformers import CLIPProcessor, CLIPModel, AutoModelForCausalLM
+# from attacks import pgd_attack
 
 # model = AutoModelForCausalLM.from_pretrained("TIGER-Lab/VLM2Vec-Full", trust_remote_code=True, torch_dtype="auto")
 torch.cuda.is_available()
@@ -60,8 +61,124 @@ def setup_ndcg_logger(log_file: str = None):
     logger.info(f"Logging to: {log_file}")
     return logger
 
-
-from attacks import fgsm_attack_clip, pgd_attack_clip
+def pgd_attack(model, image_tensor_01, text_tokens, normalize_fn, epsilon=0.0314, alpha=0.0078, steps=20, device='cuda'):
+    """
+    PGD attack - exact copy from attack_clip.py
+    """
+    x0 = image_tensor_01.clone().detach()
+    
+    # Random initialization
+    x_adv = x0 + torch.empty_like(x0).uniform_(-epsilon, epsilon)
+    x_adv = x_adv.clamp(0, 1)
+    
+    for _ in range(steps):
+        x_adv.requires_grad_(True)
+        
+        # Normalize for CLIP
+        x_input = normalize_fn(x_adv)
+        
+        # Get embeddings
+        img_emb = model.encode_image(x_input)
+        img_emb = F.normalize(img_emb, dim=-1)
+        
+        text_emb = model.encode_text(text_tokens)
+        text_emb = F.normalize(text_emb, dim=-1)
+        
+        # Similarity
+        sim = img_emb @ text_emb.T  # (B, L)
+        
+        # Loss: NEGATIVE similarity (we want to minimize it)
+        loss = -sim.mean()
+        
+        # Backward
+        model.zero_grad()
+        loss.backward()
+        
+        with torch.no_grad():
+            grad = x_adv.grad
+            # PGD step
+            x_adv = x_adv + alpha * grad.sign()
+            # Project to epsilon ball
+            x_adv = torch.max(torch.min(x_adv, x0 + epsilon), x0 - epsilon)
+            x_adv = x_adv.clamp(0, 1)
+        
+        x_adv.requires_grad_(True)
+    
+    return x_adv.detach()
+# This attack is based on the FGSM attack on CLIP to reduce image-text similarity.
+def fgsm_attack_clip(image, pipeline, epsilon=0.03, target_text=None):
+    """
+    FGSM attack on CLIP to reduce image-text similarity.
+    
+    Args:
+        image: PIL Image
+        pipeline: MultimodalRetrievalPipeline with CLIP model
+        epsilon: Perturbation magnitude (default 0.03)
+        target_text: Optional specific text to attack against. If None, uses generic text.
+    
+    Returns:
+        Perturbed PIL Image
+    """
+    # Use a generic text if none provided
+    # This genereci text is aimed to reduce image-text similarity
+    if target_text is None:
+        target_text = "A photo of an object"
+    
+    # Convert image to tensor with CLIP preprocessing
+    img_rgb = image.convert("RGB")
+    transform = TF.Compose([
+        TF.Resize((224, 224)),
+        TF.ToTensor(),
+        TF.Normalize(mean=[0.48145466, 0.4578275, 0.40821073], 
+                     std=[0.26862954, 0.26130258, 0.27577711])
+    ])
+    
+    img_tensor = transform(img_rgb).unsqueeze(0).to(pipeline.model.device)
+    img_tensor.requires_grad = True
+    
+    # Encode text (target to reduce similarity with)
+    text_inputs = pipeline.processor(text=[target_text], return_tensors="pt", padding=True)
+    text_inputs = {k: v.to(pipeline.model.device) for k, v in text_inputs.items()}
+    
+    with torch.enable_grad():
+        # Get embeddings
+        text_embeds = pipeline.model.get_text_features(**text_inputs)
+        text_embeds = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
+        
+        image_embeds = pipeline.model.get_image_features(pixel_values=img_tensor)
+        image_embeds = image_embeds / image_embeds.norm(dim=-1, keepdim=True)
+        
+        # Loss: maximize distance (minimize similarity)
+        # We want to REDUCE relevance, so we minimize the negative similarity
+        similarity = F.cosine_similarity(image_embeds, text_embeds)
+        loss = similarity.mean()  # We'll add gradient to reduce this
+        
+        # Backprop
+        pipeline.model.zero_grad()
+        loss.backward()
+        
+        # FGSM: perturb in direction that INCREASES loss (reduces similarity)
+        # Since we want to reduce similarity, we add epsilon * sign(gradient)
+        sign_grad = img_tensor.grad.sign()
+        perturbed_tensor = img_tensor + epsilon * sign_grad
+        
+        # Denormalize back to [0, 1] range
+        mean = torch.tensor([0.48145466, 0.4578275, 0.40821073]).view(1, 3, 1, 1).to(pipeline.model.device)
+        std = torch.tensor([0.26862954, 0.26130258, 0.27577711]).view(1, 3, 1, 1).to(pipeline.model.device)
+        
+        perturbed_tensor = perturbed_tensor * std + mean
+        perturbed_tensor = torch.clamp(perturbed_tensor, 0, 1)
+    
+    # Convert back to PIL Image
+    perturbed_np = perturbed_tensor.squeeze(0).detach().cpu().numpy()
+    perturbed_np = (perturbed_np.transpose(1, 2, 0) * 255).astype(np.uint8)
+    perturbed_image = Image.fromarray(perturbed_np)
+    
+    # Resize back to original size if needed
+    if perturbed_image.size != image.size:
+        perturbed_image = perturbed_image.resize(image.size, Image.LANCZOS)
+    
+    return perturbed_image
 
 # Perturb images function
 def perturb(img, ptype, pipeline=None):
@@ -86,10 +203,12 @@ def perturb(img, ptype, pipeline=None):
     elif ptype == "fgsm":
         assert pipeline is not None, "Pipeline required for FGSM attack"
         return fgsm_attack_clip(img, pipeline, epsilon=0.03)
-    elif ptype == "pgd":
-        assert pipeline is not None, "Pipeline required for PGD attack"
-        return pgd_attack_clip(img, pipeline, epsilon=0.03, steps=10)
     # control
+    elif ptype == "pgd":
+        assert pipeline is not None, "pipeline required for pgd"
+        inputs = pipeline.processor(images=img, return_tensors="pt", padding=True)
+        pixel_values = inputs['pixel_values'].to(pipeline.model.device)
+        return pgd_attack(pipeline.model, pixel_values)
     else:
         return img
 
@@ -219,7 +338,7 @@ def deliverthegoods(datasets, perturbations, model_name):
     pipeline = MultimodalRetrievalPipeline(model_name)
     ndcg_scores = {}
     avg_ndcg_scores = {}
-    base_img_url = '/work/aho13/work/aho13/'
+    base_img_url = '/work/aho13/MMEB-eval/'
     k=10
 
     i2tds = set(["MSCOCO_i2t","VisualNews_i2t"])
@@ -266,14 +385,14 @@ def deliverthegoods(datasets, perturbations, model_name):
 def main():
 
     # Visual News_i2t dataset and pipeline
-    # datasets= ["VisualNews_i2t"]
+    datasets= ["VisualNews_i2t", "MSCOCO_i2t"]
     # datasets= [ "Wiki-SS-NQ"]
-    datasets=["VisualNews_t2i","MSCOCO_t2i","VisDial","WIKI-SS-NQ"]
+    # datasets=["VisualNews_t2i","MSCOCO_t2i","VisDial","WIKI-SS-NQ"]
     # perturbations = ["flip", "gauss1","bright","grayscale"]
     # perturbations = ['gauss1','compress', 'flip']
-    perturbations = ["ctrl",'fgsm']
-    model_name = "openai/clip-vit-base-patch32"
-    ndcg_scores = deliverthegoods(datasets, perturbations, model_name)
+    perturbations = ['pgd','ctrl']
+    # model_name = "openai/clip-vit-base-patch32"
+    ndcg_scores = deliverthegoods(datasets, perturbations,"openai/clip-vit-large-patch14")
 
 
 if __name__ == "__main__":
