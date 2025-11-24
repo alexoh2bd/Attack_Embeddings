@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """eval_defenses_batch.py
 
-Evaluate all defense models on the pre-attacked MMEB-eval dataset.
+Evaluate all defense models on the pre-attacked MMEB-eval dtaset
 
-Usage:
+Command:
     python eval_defenses_batch.py --attacked_dir mmeb_eval_attacked
 """
 

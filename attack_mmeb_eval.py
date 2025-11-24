@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """attack_mmeb_eval.py
 
-Generate PGD adversarial examples for the entire MMEB-eval dataset.
+Generation augmented by the help of Google Antigravity - model Gemini 3 Pro and Claude Sonnet 4.5 Thinking
 Saves attacked images and metadata to mmeb_eval_attacked/ folder.
 
 Usage:

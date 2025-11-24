@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """attack_mmeb_train.py
 
+Generation augmented by the help of Google Antigravity - model Gemini 3 Pro and Claude Sonnet 4.5 Thinking
+
 Generate PGD adversarial examples for the MMEB-train dataset.
 Saves attacked images and metadata to mmeb_train_attacked/ folder.
 

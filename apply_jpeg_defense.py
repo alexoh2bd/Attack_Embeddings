@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """apply_jpeg_defense.py
 
+Generation augmented by the help of Google Antigravity - model Gemini 3 Pro and Claude Sonnet 4.5 Thinking
+
 Apply JPEG compression defense to all adversarial images.
 
 Usage:

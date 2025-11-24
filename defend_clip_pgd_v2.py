@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """defend_clip_pgd_v2.py
+Generation augmented by the help of Google Antigravity - model Gemini 3 Pro and Claude Sonnet 4.5 Thinking
 
-PGD Adversarial Training using PRE-GENERATED adversarial examples.
-Loads adversarial images from mmeb_train_attacked/ folder.
-
-Usage:
+Command to train:
     python defend_clip_pgd_v2.py --batch_size 16 --epochs 3 --loss_threshold 0.1
 """
 
